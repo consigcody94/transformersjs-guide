@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Classification - Transformers.js</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .upload-section {
+      border: 3px dashed #e0e0e0;
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      transition: all 0.3s;
+      cursor: pointer;
+      background: #fafafa;
+    }
+
+    .upload-section:hover {
+      border-color: #667eea;
+      background: #f5f5ff;
+    }
+
+    .upload-section.dragover {
+      border-color: #667eea;
+      background: #e8ebff;
+      transform: scale(1.02);
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .upload-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+    }
+
+    .preview-section {
+      margin-top: 30px;
+      display: none;
+    }
+
+    .preview-section.active {
+      display: block;
+    }
+
+    .image-preview {
+      width: 100%;
+      max-width: 500px;
+      margin: 0 auto 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .results {
+      margin-top: 20px;
+    }
+
+    .result-item {
+      display: flex;
+      align-items: center;
+      padding: 15px;
+      margin-bottom: 10px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      transition: transform 0.2s;
+    }
+
+    .result-item:hover {
+      transform: translateX(5px);
+    }
+
+    .result-label {
+      flex: 1;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .result-bar {
+      flex: 2;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 0 15px;
+    }
+
+    .result-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      transition: width 0.5s ease;
+    }
+
+    .result-score {
+      font-weight: 600;
+      color: #667eea;
+      min-width: 60px;
+      text-align: right;
+    }
+
+    button {
+      padding: 15px 30px;
+      font-size: 16px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      margin-top: 20px;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .model-select {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 12px;
+    }
+
+    .model-select label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .model-select select {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      background: white;
+    }
+
+    .stats {
+      margin-top: 20px;
+      padding: 15px;
+      background: #e8f5e9;
+      border-radius: 12px;
+      display: none;
+    }
+
+    .stats.active {
+      display: block;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 10px;
+    }
+
+    .stat-item {
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #2e7d32;
+      margin-top: 5px;
+    }
+
+    .example-images {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .example-img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      border: 3px solid transparent;
+    }
+
+    .example-img:hover {
+      transform: scale(1.05);
+      border-color: #667eea;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🖼️ AI Image Classifier</h1>
+    <p class="subtitle">Classify images using state-of-the-art computer vision models</p>
+
+    <div class="model-select">
+      <label for="model">Select Model:</label>
+      <select id="model">
+        <option value="Xenova/vit-base-patch16-224">ViT Base (Default) - Balanced speed & accuracy</option>
+        <option value="Xenova/mobilenetv4_conv_small.e2400_r224_in1k">MobileNetV4 - Fastest, mobile-optimized</option>
+        <option value="Xenova/resnet-50">ResNet-50 - High accuracy</option>
+        <option value="Xenova/deit-tiny-patch16-224">DeiT Tiny - Lightweight transformer</option>
+      </select>
+    </div>
+
+    <div class="upload-section" id="uploadSection">
+      <div class="upload-icon">📤</div>
+      <h3>Drop an image here or click to upload</h3>
+      <p style="margin-top: 10px; color: #666;">Supports JPG, PNG, WebP</p>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+
+    <div class="preview-section" id="previewSection">
+      <img id="imagePreview" class="image-preview" alt="Preview">
+      <button id="classifyBtn">
+        <span id="classifyText">Classify Image</span>
+      </button>
+      <div class="results" id="results"></div>
+      <div class="stats" id="stats">
+        <strong>Performance Metrics</strong>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-label">Inference Time</div>
+            <div class="stat-value" id="inferenceTime">-</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Top Prediction</div>
+            <div class="stat-value" id="topLabel" style="font-size: 16px;">-</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Confidence</div>
+            <div class="stat-value" id="topScore">-</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 30px;">
+      <h3 style="margin-bottom: 15px;">Try Example Images:</h3>
+      <div class="example-images">
+        <img class="example-img" src="https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg" alt="Tiger" title="Tiger">
+        <img class="example-img" src="https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/football-match.jpg" alt="Football" title="Football Match">
+        <img class="example-img" src="https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/airport.jpg" alt="Airport" title="Airport">
+        <img class="example-img" src="https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg" alt="Cats" title="Cats">
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.6';
+
+    let classifier = null;
+    let currentModel = 'Xenova/vit-base-patch16-224';
+    let currentImage = null;
+
+    // Initialize
+    async function initModel() {
+      const modelSelect = document.getElementById('model');
+      const classifyBtn = document.getElementById('classifyBtn');
+      const classifyText = document.getElementById('classifyText');
+
+      try {
+        classifyText.innerHTML = '<div class="loading"></div> Loading model...';
+        classifyBtn.disabled = true;
+
+        classifier = await pipeline('image-classification', currentModel);
+
+        classifyText.textContent = 'Classify Image';
+        classifyBtn.disabled = false;
+
+        console.log('✅ Model loaded:', currentModel);
+      } catch (error) {
+        console.error('❌ Model load failed:', error);
+        classifyText.textContent = 'Model Load Failed';
+      }
+    }
+
+    // Model change handler
+    document.getElementById('model').addEventListener('change', async (e) => {
+      currentModel = e.target.value;
+      classifier = null;
+      if (currentImage) {
+        await initModel();
+      }
+    });
+
+    // File upload
+    const fileInput = document.getElementById('fileInput');
+    const uploadSection = document.getElementById('uploadSection');
+    const previewSection = document.getElementById('previewSection');
+    const imagePreview = document.getElementById('imagePreview');
+
+    uploadSection.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', handleFile);
+
+    // Drag and drop
+    uploadSection.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadSection.classList.add('dragover');
+    });
+
+    uploadSection.addEventListener('dragleave', () => {
+      uploadSection.classList.remove('dragover');
+    });
+
+    uploadSection.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadSection.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        handleImageFile(file);
+      }
+    });
+
+    async function handleFile(e) {
+      const file = e.target.files[0];
+      if (file) {
+        handleImageFile(file);
+      }
+    }
+
+    async function handleImageFile(file) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        currentImage = e.target.result;
+        imagePreview.src = currentImage;
+        previewSection.classList.add('active');
+        document.getElementById('results').innerHTML = '';
+        document.getElementById('stats').classList.remove('active');
+
+        if (!classifier) {
+          await initModel();
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Example images
+    document.querySelectorAll('.example-img').forEach(img => {
+      img.addEventListener('click', async () => {
+        currentImage = img.src;
+        imagePreview.src = currentImage;
+        previewSection.classList.add('active');
+        document.getElementById('results').innerHTML = '';
+        document.getElementById('stats').classList.remove('active');
+
+        if (!classifier) {
+          await initModel();
+        }
+      });
+    });
+
+    // Classify
+    document.getElementById('classifyBtn').addEventListener('click', async () => {
+      const classifyText = document.getElementById('classifyText');
+      const classifyBtn = document.getElementById('classifyBtn');
+      const resultsDiv = document.getElementById('results');
+      const statsDiv = document.getElementById('stats');
+
+      classifyBtn.disabled = true;
+      classifyText.innerHTML = '<div class="loading"></div> Classifying...';
+
+      try {
+        const startTime = performance.now();
+        const results = await classifier(currentImage, { topk: 5 });
+        const inferenceTime = Math.round(performance.now() - startTime);
+
+        // Display results
+        resultsDiv.innerHTML = '<h3 style="margin-bottom: 15px;">Top 5 Predictions:</h3>';
+
+        results.forEach((result, index) => {
+          const percentage = (result.score * 100).toFixed(1);
+          const item = document.createElement('div');
+          item.className = 'result-item';
+          item.innerHTML = `
+            <span class="result-label">${index + 1}. ${result.label}</span>
+            <div class="result-bar">
+              <div class="result-fill" style="width: ${percentage}%"></div>
+            </div>
+            <span class="result-score">${percentage}%</span>
+          `;
+          resultsDiv.appendChild(item);
+        });
+
+        // Show stats
+        document.getElementById('inferenceTime').textContent = `${inferenceTime}ms`;
+        document.getElementById('topLabel').textContent = results[0].label;
+        document.getElementById('topScore').textContent = `${(results[0].score * 100).toFixed(1)}%`;
+        statsDiv.classList.add('active');
+
+        console.log('Classification results:', results);
+        console.log('Inference time:', inferenceTime, 'ms');
+
+      } catch (error) {
+        resultsDiv.innerHTML = `
+          <div style="padding: 20px; background: #f8d7da; color: #721c24; border-radius: 12px;">
+            ❌ Classification failed: ${error.message}
+          </div>
+        `;
+      } finally {
+        classifyBtn.disabled = false;
+        classifyText.textContent = 'Classify Again';
+      }
+    });
+  </script>
+</body>
+</html>

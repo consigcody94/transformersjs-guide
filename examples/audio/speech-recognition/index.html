@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Speech Recognition - Transformers.js</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .record-section {
+      text-align: center;
+      padding: 40px;
+      background: #f8f9fa;
+      border-radius: 16px;
+      margin-bottom: 30px;
+    }
+
+    .record-button {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      font-size: 48px;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+
+    .record-button:hover:not(:disabled) {
+      transform: scale(1.1);
+      box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+    }
+
+    .record-button.recording {
+      background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .record-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .status-text {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #333;
+      font-weight: 600;
+    }
+
+    .upload-section {
+      border: 3px dashed #e0e0e0;
+      border-radius: 16px;
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 30px;
+    }
+
+    .upload-section:hover {
+      border-color: #667eea;
+      background: #f5f5ff;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .model-select {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 12px;
+    }
+
+    .model-select label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    .model-select select {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+    }
+
+    .transcription-box {
+      margin-top: 30px;
+      padding: 25px;
+      background: #f8f9fa;
+      border-radius: 16px;
+      min-height: 150px;
+      display: none;
+    }
+
+    .transcription-box.active {
+      display: block;
+    }
+
+    .transcription-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .transcription-text {
+      font-size: 18px;
+      line-height: 1.6;
+      color: #333;
+      white-space: pre-wrap;
+    }
+
+    .copy-btn {
+      padding: 8px 16px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .copy-btn:hover {
+      background: #5568d3;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #667eea;
+      margin-top: 5px;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .waveform {
+      width: 100%;
+      height: 60px;
+      margin: 20px 0;
+      display: none;
+    }
+
+    .waveform.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎤 AI Speech Recognition</h1>
+    <p class="subtitle">Powered by OpenAI Whisper - State-of-the-art speech-to-text</p>
+
+    <div class="model-select">
+      <label for="model">Select Whisper Model:</label>
+      <select id="model">
+        <option value="Xenova/whisper-tiny.en">Whisper Tiny (English) - Fastest, 39M params</option>
+        <option value="Xenova/whisper-tiny">Whisper Tiny (Multilingual) - 39M params</option>
+        <option value="Xenova/whisper-base.en">Whisper Base (English) - Better accuracy, 74M params</option>
+        <option value="Xenova/whisper-small.en">Whisper Small (English) - High accuracy, 244M params</option>
+      </select>
+    </div>
+
+    <div class="record-section">
+      <button class="record-button" id="recordBtn" title="Click to start recording">
+        🎙️
+      </button>
+      <div class="status-text" id="statusText">Click to start recording</div>
+      <canvas class="waveform" id="waveform"></canvas>
+    </div>
+
+    <div class="upload-section" id="uploadSection">
+      <div style="font-size: 32px; margin-bottom: 10px;">📁</div>
+      <h3>Or upload an audio file</h3>
+      <p style="margin-top: 10px; color: #666;">Supports MP3, WAV, M4A, OGG</p>
+      <input type="file" id="fileInput" accept="audio/*">
+    </div>
+
+    <div class="transcription-box" id="transcriptionBox">
+      <div class="transcription-header">
+        <h3>Transcription</h3>
+        <button class="copy-btn" id="copyBtn">📋 Copy</button>
+      </div>
+      <div class="transcription-text" id="transcriptionText"></div>
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-label">Processing Time</div>
+          <div class="stat-value" id="processingTime">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Audio Duration</div>
+          <div class="stat-value" id="audioDuration">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Words</div>
+          <div class="stat-value" id="wordCount">-</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.6';
+
+    let transcriber = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+    let audioContext = null;
+    let analyser = null;
+    let animationId = null;
+
+    const recordBtn = document.getElementById('recordBtn');
+    const statusText = document.getElementById('statusText');
+    const transcriptionBox = document.getElementById('transcriptionBox');
+    const transcriptionText = document.getElementById('transcriptionText');
+    const waveformCanvas = document.getElementById('waveform');
+
+    // Initialize model
+    async function initModel(modelName) {
+      try {
+        statusText.innerHTML = '<div class="loading"></div> Loading Whisper model...';
+        recordBtn.disabled = true;
+
+        transcriber = await pipeline('automatic-speech-recognition', modelName);
+
+        statusText.textContent = 'Click to start recording';
+        recordBtn.disabled = false;
+
+        console.log('✅ Model loaded:', modelName);
+      } catch (error) {
+        console.error('❌ Model load failed:', error);
+        statusText.textContent = 'Model load failed';
+      }
+    }
+
+    // Initialize with default model
+    initModel('Xenova/whisper-tiny.en');
+
+    // Model change
+    document.getElementById('model').addEventListener('change', (e) => {
+      transcriber = null;
+      initModel(e.target.value);
+    });
+
+    // Record button
+    recordBtn.addEventListener('click', async () => {
+      if (!isRecording) {
+        await startRecording();
+      } else {
+        stopRecording();
+      }
+    });
+
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        // Setup audio context for visualization
+        audioContext = new AudioContext();
+        const source = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+        drawWaveform();
+
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          await transcribeAudio(audioBlob);
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+
+        recordBtn.classList.add('recording');
+        recordBtn.textContent = '⏹️';
+        statusText.textContent = 'Recording... Click to stop';
+        waveformCanvas.classList.add('active');
+
+      } catch (error) {
+        console.error('Microphone access denied:', error);
+        statusText.textContent = 'Microphone access denied';
+      }
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        isRecording = false;
+
+        recordBtn.classList.remove('recording');
+        recordBtn.textContent = '🎙️';
+        statusText.innerHTML = '<div class="loading"></div> Transcribing...';
+        waveformCanvas.classList.remove('active');
+
+        if (animationId) {
+          cancelAnimationFrame(animationId);
+        }
+        if (audioContext) {
+          audioContext.close();
+        }
+      }
+    }
+
+    // Waveform visualization
+    function drawWaveform() {
+      if (!analyser) return;
+
+      const canvas = waveformCanvas;
+      const ctx = canvas.getContext('2d');
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+
+      function draw() {
+        animationId = requestAnimationFrame(draw);
+
+        analyser.getByteTimeDomainData(dataArray);
+
+        ctx.fillStyle = '#f8f9fa';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#667eea';
+        ctx.beginPath();
+
+        const sliceWidth = canvas.width / bufferLength;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+          const v = dataArray[i] / 128.0;
+          const y = v * canvas.height / 2;
+
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+
+          x += sliceWidth;
+        }
+
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+      }
+
+      draw();
+    }
+
+    // File upload
+    const fileInput = document.getElementById('fileInput');
+    const uploadSection = document.getElementById('uploadSection');
+
+    uploadSection.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        statusText.innerHTML = '<div class="loading"></div> Transcribing...';
+        await transcribeAudio(file);
+      }
+    });
+
+    // Transcribe audio
+    async function transcribeAudio(audioData) {
+      try {
+        const startTime = performance.now();
+
+        // Get audio duration
+        const audioUrl = URL.createObjectURL(audioData);
+        const audio = new Audio(audioUrl);
+        await new Promise(resolve => audio.addEventListener('loadedmetadata', resolve));
+        const duration = audio.duration;
+
+        // Transcribe
+        const result = await transcriber(audioUrl);
+        const processingTime = Math.round(performance.now() - startTime);
+
+        // Display results
+        transcriptionText.textContent = result.text;
+        document.getElementById('processingTime').textContent = `${(processingTime / 1000).toFixed(1)}s`;
+        document.getElementById('audioDuration').textContent = `${duration.toFixed(1)}s`;
+        document.getElementById('wordCount').textContent = result.text.split(/\s+/).length;
+
+        transcriptionBox.classList.add('active');
+        statusText.textContent = 'Transcription complete!';
+        recordBtn.disabled = false;
+
+        console.log('Transcription:', result.text);
+        console.log('Processing time:', processingTime, 'ms');
+
+        URL.revokeObjectURL(audioUrl);
+
+      } catch (error) {
+        console.error('Transcription failed:', error);
+        statusText.textContent = 'Transcription failed';
+        transcriptionText.textContent = `Error: ${error.message}`;
+        transcriptionBox.classList.add('active');
+        recordBtn.disabled = false;
+      }
+    }
+
+    // Copy to clipboard
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+      const text = transcriptionText.textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        document.getElementById('copyBtn').textContent = '✅ Copied!';
+        setTimeout(() => {
+          document.getElementById('copyBtn').textContent = '📋 Copy';
+        }, 2000);
+      } catch (error) {
+        console.error('Copy failed:', error);
+      }
+    });
+  </script>
+</body>
+</html>

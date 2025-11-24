@@ -1,0 +1,45 @@
+{
+  "name": "transformersjs-guide",
+  "version": "1.0.0",
+  "description": "The Complete Guide to Building Next-Generation WebAI Applications with Transformers.js",
+  "type": "module",
+  "keywords": [
+    "transformers",
+    "transformers.js",
+    "machine-learning",
+    "ai",
+    "webai",
+    "webgpu",
+    "nlp",
+    "computer-vision",
+    "speech-recognition",
+    "huggingface",
+    "onnx",
+    "deep-learning",
+    "neural-networks",
+    "browser-ai"
+  ],
+  "author": "Transformers.js Guide Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/consigcody94/transformersjs-guide.git"
+  },
+  "bugs": {
+    "url": "https://github.com/consigcody94/transformersjs-guide/issues"
+  },
+  "homepage": "https://github.com/consigcody94/transformersjs-guide#readme",
+  "scripts": {
+    "lint": "eslint . --ext .js,.ts,.jsx,.tsx",
+    "format": "prettier --write \"**/*.{js,ts,jsx,tsx,json,md}\"",
+    "check-links": "find . -name '*.md' -exec markdown-link-check {} \\;"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "markdown-link-check": "^3.12.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

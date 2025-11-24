@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentiment Analysis - Transformers.js</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 15px;
+      font-size: 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      resize: vertical;
+      font-family: inherit;
+      transition: border-color 0.3s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 15px 30px;
+      font-size: 16px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      width: 100%;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .result {
+      margin-top: 25px;
+      padding: 25px;
+      border-radius: 12px;
+      font-size: 18px;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .positive {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: white;
+    }
+
+    .negative {
+      background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+      color: white;
+    }
+
+    .emoji {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+
+    .confidence {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-top: 5px;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .examples {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .example-btn {
+      padding: 8px 15px;
+      font-size: 14px;
+      background: #f0f0f0;
+      color: #333;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .example-btn:hover {
+      background: #e0e0e0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🤖 AI Sentiment Analyzer</h1>
+    <p class="subtitle">Powered by Transformers.js - Running 100% in your browser</p>
+
+    <textarea
+      id="text"
+      rows="4"
+      placeholder="Enter any text to analyze its sentiment..."
+    >I love Transformers.js! It makes AI so easy to use.</textarea>
+
+    <div class="examples">
+      <button class="example-btn" onclick="setExample('I love this product! Best purchase ever.')">Positive Example</button>
+      <button class="example-btn" onclick="setExample('This is the worst experience I ever had.')">Negative Example</button>
+      <button class="example-btn" onclick="setExample('The weather is fine today.')">Neutral Example</button>
+    </div>
+
+    <button id="analyze" onclick="analyzeSentiment()">
+      <span id="button-text">Analyze Sentiment</span>
+    </button>
+
+    <div id="result"></div>
+  </div>
+
+  <script type="module">
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.6';
+
+    let classifier = null;
+
+    // Load model on page load
+    window.addEventListener('DOMContentLoaded', async () => {
+      const button = document.getElementById('analyze');
+      const buttonText = document.getElementById('button-text');
+
+      buttonText.innerHTML = '<div class="loading"></div> Loading AI Model...';
+      button.disabled = true;
+
+      try {
+        // Download and initialize model
+        classifier = await pipeline('sentiment-analysis');
+
+        buttonText.textContent = 'Analyze Sentiment';
+        button.disabled = false;
+
+        console.log('✅ Model loaded successfully');
+      } catch (error) {
+        console.error('❌ Failed to load model:', error);
+
+        document.getElementById('result').innerHTML = `
+          <div class="result" style="background: #f44336; color: white;">
+            <div class="emoji">⚠️</div>
+            <strong>Failed to load model</strong><br>
+            <div class="confidence">${error.message}</div>
+          </div>
+        `;
+
+        buttonText.textContent = 'Model Load Failed';
+      }
+    });
+
+    // Set example text
+    window.setExample = function(text) {
+      document.getElementById('text').value = text;
+    };
+
+    // Analyze sentiment
+    window.analyzeSentiment = async function() {
+      const text = document.getElementById('text').value.trim();
+      const button = document.getElementById('analyze');
+      const buttonText = document.getElementById('button-text');
+
+      if (!text) {
+        alert('⚠️ Please enter some text to analyze!');
+        return;
+      }
+
+      // Update UI to loading state
+      button.disabled = true;
+      buttonText.innerHTML = '<div class="loading"></div> Analyzing...';
+
+      try {
+        // Run inference
+        const startTime = performance.now();
+        const result = await classifier(text);
+        const inferenceTime = Math.round(performance.now() - startTime);
+
+        const { label, score } = result[0];
+
+        // Determine sentiment
+        const sentiment = label.toLowerCase();
+        const confidence = (score * 100).toFixed(1);
+        const emoji = sentiment === 'positive' ? '😊' :
+                     sentiment === 'negative' ? '😞' : '😐';
+
+        // Display result
+        document.getElementById('result').innerHTML = `
+          <div class="result ${sentiment}">
+            <div class="emoji">${emoji}</div>
+            <strong>${label.toUpperCase()}</strong><br>
+            <div class="confidence">
+              Confidence: ${confidence}% |
+              Inference: ${inferenceTime}ms
+            </div>
+          </div>
+        `;
+
+        console.log('Result:', { label, score, inferenceTime });
+
+      } catch (error) {
+        console.error('❌ Inference error:', error);
+
+        document.getElementById('result').innerHTML = `
+          <div class="result" style="background: #f44336; color: white;">
+            <div class="emoji">❌</div>
+            <strong>Analysis Failed</strong><br>
+            <div class="confidence">${error.message}</div>
+          </div>
+        `;
+      } finally {
+        // Reset button state
+        button.disabled = false;
+        buttonText.textContent = 'Analyze Sentiment';
+      }
+    };
+  </script>
+</body>
+</html>
